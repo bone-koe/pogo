@@ -1,0 +1,63 @@
+name: Pogo M3U8 Harvester
+
+# Jalan otomatis tiap 15 menit + bisa dipicu manual dari tab Actions.
+# Catatan GitHub: jadwal cron bisa telat beberapa menit saat server
+# sibuk; itu wajar dan tidak masalah (umur tanda tangan .m3u8 +/-80
+# menit, harvester memperbarui yang <20 menit lagi kedaluwarsa).
+on:
+  schedule:
+    - cron: "*/15 * * * *"
+  workflow_dispatch:
+
+# Cegah dua putaran menumpuk bersamaan.
+concurrency:
+  group: harvester
+  cancel-in-progress: false
+
+jobs:
+  harvest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Siapkan Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      # Profil browser (izin Cloudflare) + cache browser Playwright
+      # disimpan antar-run supaya tidak mulai dari nol tiap putaran.
+      - name: Cache profil & browser
+        uses: actions/cache@v4
+        with:
+          path: |
+            pogo-profile
+            ~/.cache/ms-playwright
+          key: harvester-${{ runner.os }}-v1
+          restore-keys: |
+            harvester-${{ runner.os }}-
+
+      - name: Install dependensi
+        run: npm install --no-audit --no-fund
+
+      - name: Install Chromium Playwright
+        run: npx playwright install --with-deps chromium
+
+      - name: Jaring .m3u8 (satu putaran)
+        env:
+          WORKER_URL: ${{ secrets.WORKER_URL }}
+          INGEST_KEY: ${{ secrets.INGEST_KEY }}
+        run: xvfb-run -a node harvester.js
+
+      # Screenshot diagnosis selalu diunggah (terlihat bila halaman
+      # player berhenti di tantangan Cloudflare).
+      - name: Unggah screenshot diagnosis
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: shots-${{ github.run_number }}
+          path: shots/
+          if-no-files-found: ignore
+          retention-days: 3
