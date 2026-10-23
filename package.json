@@ -1,0 +1,1 @@
+{"dependencies":{"playwright":"^1.48.0"},"description":"Menjaring .m3u8 playerdee.top via Playwright dan mengirimnya ke POGO Playlist Worker (V1.4+).","main":"harvester.js","name":"pogo-m3u8-harvester","private":true,"scripts":{"start":"node harvester.js"},"version":"1.0.0"}
